@@ -11,3 +11,7 @@
 | URL+ParameterKey                  | Get    | ParameterKey |
 
 ​                                                                       
+
+You can use this to get a GET request
+
+![HttpGet](https://raw.githubusercontent.com/ecg82465/TESTPlugins/master/Image/HttpGet.jpg)
