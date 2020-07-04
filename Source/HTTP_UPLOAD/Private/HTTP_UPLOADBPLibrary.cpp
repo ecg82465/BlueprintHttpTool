@@ -1,4 +1,4 @@
-// Copyright ECG. All Rights Reserved.
+﻿// Copyright ECG. All Rights Reserved.
 
 #include "HTTP_UPLOADBPLibrary.h"
 #include "HTTP_UPLOAD.h"
@@ -66,18 +66,9 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFile(FString URL,FString FileName, FS
 		for (int i = 0; i < Keys.Num(); i++)
 		{
 
-			// header group for the file
-
 			KeyString.Append("\r\n--" + Boundary+"\r\n");
-
 			KeyString.Append("Content-Disposition: form-data; name=\"" + KeyNames[i] + "\"\r\n\r\n");
-
-
-
 			KeyString.Append(*Keys.Find(KeyNames[i]));
-
-			//FileUploadRequest->SetHeader("Content-Type", "image/jpeg");
-			//FileUploadRequest->SetHeader("Content-Encoding", "gzip");
 
 		}
 	}
@@ -147,6 +138,75 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFile(FString URL,FString FileName, FS
 
 	return Rbaby;
 	
+}
+
+URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFiles(FString URL, const TMap<FString, FString> Files, TMap<FString, FString> Keys)
+{
+
+	URequerstObj* Rbaby = NewObject<URequerstObj>();
+
+	TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+	HttpRequest->SetURL(URL);
+
+	// Request header
+	FString Boundary = "---------------------------" + FString::FromInt(FDateTime::Now().GetTicks());
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("multipart/form-data; boundary =" + Boundary));
+	HttpRequest->SetVerb(TEXT("POST"));
+
+
+	//files 
+	TArray<FString> FilesNames;
+	Files.GenerateKeyArray(FilesNames);
+
+	TArray<uint8> RequestContent;
+	for (const FString& FileName : FilesNames)
+	{
+		TArray<uint8> FileContent;
+		FString FilePath = *Files.Find(FileName);
+
+		if (FFileHelper::LoadFileToArray(FileContent, *FilePath))
+		{
+			FString BeginBoundry = "\r\n--" + Boundary + "\r\n";
+			RequestContent.Append((uint8*)TCHAR_TO_ANSI(*BeginBoundry), BeginBoundry.Len());
+
+			FString FileHeader = "Content-Disposition: form-data;";//文件头
+			FileHeader.Append("name=\"" + FileName + "\";");
+			FileHeader.Append("filename=\"" + FPaths::GetCleanFilename(FilePath) + "\"");
+			FileHeader.Append("\r\nContent-Type: \r\n\r\n");
+			RequestContent.Append((uint8*)TCHAR_TO_ANSI(*FileHeader), FileHeader.Len());
+
+			RequestContent.Append(FileContent);
+		}
+	}
+
+	//keys parameter
+	FString KeyString;
+	TArray<FString> KeyNames;
+	Keys.GenerateKeyArray(KeyNames);
+	if (Keys.Num())
+	{
+		for (int i = 0; i < Keys.Num(); i++)
+		{
+			KeyString.Append("\r\n--" + Boundary + "\r\n");
+			KeyString.Append("Content-Disposition: form-data; name=\"" + KeyNames[i] + "\"\r\n\r\n");
+			KeyString.Append(*Keys.Find(KeyNames[i]));
+
+		}
+	}
+
+	RequestContent.Append((uint8*)TCHAR_TO_ANSI(*KeyString), KeyString.Len());
+	FString EndBoundary = "\r\n--" + Boundary + "--\r\n";
+	RequestContent.Append((uint8*)TCHAR_TO_ANSI(*EndBoundary), EndBoundary.Len());
+
+	HttpRequest->SetContent(RequestContent);
+
+
+	HttpRequest->OnProcessRequestComplete().BindUObject(Rbaby, &URequerstObj::GetRQ);
+	HttpRequest->ProcessRequest();
+
+
+	return Rbaby;
+
 }
 
 TArray<uint8> UHTTP_UPLOADBPLibrary::FstringToBytes(FString JsonStr)

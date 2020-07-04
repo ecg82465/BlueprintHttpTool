@@ -22,6 +22,9 @@ class UHTTP_UPLOADBPLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = "HTTP_UPLOADTesting")
 	static URequerstObj* UPloadFile(FString URL, FString FileName, FString FilePath, TMap<FString, FString> Keys);
 
+	UFUNCTION(BlueprintCallable, Category = "HTTP_UPLOADTesting")
+	static URequerstObj* UPloadFiles(FString URL, const TMap<FString, FString> Files, const TMap<FString, FString> Keys);
+
 	//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRequestHTTP, FString, IsOver);
 	UFUNCTION(BlueprintCallable, Category = "HTTP_UPLOADTesting")
 	static TArray<uint8> FstringToBytes(FString ChangeString);
