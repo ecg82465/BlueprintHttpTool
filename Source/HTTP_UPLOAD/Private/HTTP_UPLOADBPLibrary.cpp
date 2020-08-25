@@ -150,8 +150,9 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFiles(FString URL, const TMap<FString
 
 	// Request header
 	FString Boundary = "---------------------------" + FString::FromInt(FDateTime::Now().GetTicks());
-	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("multipart/form-data; boundary =" + Boundary));
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("multipart/form-data;boundary =" + Boundary));
 	HttpRequest->SetVerb(TEXT("POST"));
+	
 
 
 	//files 
@@ -189,17 +190,19 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFiles(FString URL, const TMap<FString
 		{
 			KeyString.Append("\r\n--" + Boundary + "\r\n");
 			KeyString.Append("Content-Disposition: form-data; name=\"" + KeyNames[i] + "\"\r\n\r\n");
-			KeyString.Append(*Keys.Find(KeyNames[i]));
+			KeyString.Append(*Keys.Find(KeyNames[i])+"\r\n");
 
 		}
 	}
 
-	RequestContent.Append((uint8*)TCHAR_TO_ANSI(*KeyString), KeyString.Len());
+	TArray<uint8> KeyBytes = FstringToBytes(KeyString);
+	RequestContent.Append(KeyBytes);
+
 	FString EndBoundary = "\r\n--" + Boundary + "--\r\n";
 	RequestContent.Append((uint8*)TCHAR_TO_ANSI(*EndBoundary), EndBoundary.Len());
 
 	HttpRequest->SetContent(RequestContent);
-
+	
 
 	HttpRequest->OnProcessRequestComplete().BindUObject(Rbaby, &URequerstObj::GetRQ);
 	HttpRequest->ProcessRequest();
@@ -214,10 +217,13 @@ TArray<uint8> UHTTP_UPLOADBPLibrary::FstringToBytes(FString JsonStr)
 	//FString JsonStr;
 	TArray<uint8> content;
 
+	FTCHARToUTF8 EchoStrUtf8(*JsonStr);
+
+	int32 DestLen = EchoStrUtf8.Length();
 
 
-	content.SetNum(JsonStr.Len());
-	memcpy(content.GetData(), TCHAR_TO_UTF8(*JsonStr), JsonStr.Len());
+	content.SetNum(DestLen);
+	memcpy(content.GetData(), TCHAR_TO_UTF8(*JsonStr), DestLen);
 
 
 
