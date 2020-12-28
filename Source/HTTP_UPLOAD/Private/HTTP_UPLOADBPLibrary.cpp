@@ -25,6 +25,7 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFile(FString URL,FString FileName, FS
 
 	URequerstObj* Rbaby = NewObject<URequerstObj>();
 
+	
 	// the AU
 	TArray<uint8> UpFileRawData;
 	if (!FFileHelper::LoadFileToArray(UpFileRawData, *FilePath))
@@ -43,6 +44,7 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFile(FString URL,FString FileName, FS
 
 
 	FileUploadRequest->OnProcessRequestComplete().BindUObject(Rbaby, &URequerstObj::GetRQ);
+	FileUploadRequest->OnRequestProgress().BindUObject(Rbaby,&URequerstObj::HttpRequestProgress);
 	FileUploadRequest->SetURL(URL);
 	FileUploadRequest->SetVerb("POST");
 	FileUploadRequest->SetHeader("Content-Type", "multipart/form-data; boundary="+ Boundary);
@@ -110,8 +112,13 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFile(FString URL,FString FileName, FS
 
 	FileUploadRequest->SetContent(BodyData);
 
+
+
+
 	FileUploadRequest->SetHeader("Content-Length", FString::FromInt(BodyData.Num()));
 
+	Rbaby->ContentLength = BodyData.Num();
+	Rbaby->RequerstType = "post";
 
 	//TArray<uint8>PBytes = FileUploadRequest->GetContent();
 	TArray<FString>heads = FileUploadRequest->GetAllHeaders();
@@ -168,13 +175,16 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFiles(FString URL, const TMap<FString
 		if (FFileHelper::LoadFileToArray(FileContent, *FilePath))
 		{
 			FString BeginBoundry = "\r\n--" + Boundary + "\r\n";
-			RequestContent.Append((uint8*)TCHAR_TO_ANSI(*BeginBoundry), BeginBoundry.Len());
+
+			RequestContent.Append(FstringToBytes(BeginBoundry));
+
+
 
 			FString FileHeader = "Content-Disposition: form-data;";//文件头
 			FileHeader.Append("name=\"" + FileName + "\";");
 			FileHeader.Append("filename=\"" + FPaths::GetCleanFilename(FilePath) + "\"");
 			FileHeader.Append("\r\nContent-Type: \r\n\r\n");
-			RequestContent.Append((uint8*)TCHAR_TO_ANSI(*FileHeader), FileHeader.Len());
+			RequestContent.Append(FstringToBytes(FileHeader));
 
 			RequestContent.Append(FileContent);
 		}
@@ -195,11 +205,11 @@ URequerstObj* UHTTP_UPLOADBPLibrary::UPloadFiles(FString URL, const TMap<FString
 		}
 	}
 
-	TArray<uint8> KeyBytes = FstringToBytes(KeyString);
-	RequestContent.Append(KeyBytes);
+	//TArray<uint8> KeyBytes = FstringToBytes(KeyString);
+	RequestContent.Append(FstringToBytes(KeyString));
 
 	FString EndBoundary = "\r\n--" + Boundary + "--\r\n";
-	RequestContent.Append((uint8*)TCHAR_TO_ANSI(*EndBoundary), EndBoundary.Len());
+	RequestContent.Append(FstringToBytes(EndBoundary));
 
 	HttpRequest->SetContent(RequestContent);
 	
@@ -282,6 +292,39 @@ void URequerstObj:: GetRQ(FHttpRequestPtr request, FHttpResponsePtr response, bo
 
 }
 
+void URequerstObj::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 BytesSend, int32 InBytesReceived)
+{
+	int32 ReceivedSize = InBytesReceived;
+	//int32 TotalSize = HttpRequest->GetContentLength(); // Incorrect, this is the size of the payload SENT in the REQUEST
+
+	FHttpResponsePtr HttpResponse = HttpRequest->GetResponse();
+
+	if (HttpResponse.IsValid())
+	{
+		if (RequerstType =="post")
+		{
+			float PercentDone = ((float)BytesSend / (float)ContentLength) * 100;
+
+
+			OnHttpProgressReturn.Broadcast(BytesSend,ContentLength,PercentDone, ID);
+
+			//UE_LOG(LogTemp, Warning, TEXT("Bytes Send = %d, PercentDone = %f ,ContentLength = %d"), BytesSend, PercentDone, ContentLength);
+		}
+		else
+		{
+			int32 TotalSize = HttpResponse->GetContentLength(); // Correct, this is the size of the payload RECEIVED in the RESPONSE
+
+			float PercentDone = ((float)ReceivedSize / (float)TotalSize) * 100;
+
+			OnHttpProgressReturn.Broadcast(ReceivedSize, TotalSize, PercentDone, ID);
+			
+			//UE_LOG(LogTemp, Warning, TEXT("Received Size = %d, TotalSize = %d, PercentDone = %.2f%"), ReceivedSize, TotalSize, PercentDone);
+
+		}
+		
+	}
+}
+
  URequerstObj* UHTTP_UPLOADBPLibrary::PostJson(FString URL, FString JsonString, FString ID)
 {
 	 URequerstObj* Rbaby = NewObject<URequerstObj>();
@@ -321,22 +364,18 @@ void URequerstObj:: GetRQ(FHttpRequestPtr request, FHttpResponsePtr response, bo
 
 	 TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 
-	 
-
 	 HttpRequest->OnProcessRequestComplete().BindUObject(Rbaby, &URequerstObj::GetRQ);
+
+	 HttpRequest->OnRequestProgress().BindUObject(Rbaby, &URequerstObj::HttpRequestProgress);
 
 	 HttpRequest->SetURL(URL);
 	 
 	 HttpRequest->SetVerb("GET");
 	 
-	
-
-
 	 HttpRequest->ProcessRequest();
 
 
 	 return Rbaby;
-
  }
 
 

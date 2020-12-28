@@ -9,7 +9,7 @@
 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FHttpRequestR, const bool, bWasSuccessful,const FString, Message,const TArray<uint8>&, bytes,const FString ,ID);
-
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FHttpProgressR, const int32, ReceivedSize, const int32, TotalSize,const float, Percent, const FString, ID);
 
 UCLASS()
 class UHTTP_UPLOADBPLibrary : public UBlueprintFunctionLibrary
@@ -55,8 +55,21 @@ public:
 
 	void GetRQ(FHttpRequestPtr request, FHttpResponsePtr response, bool bWasSuccessful);
 
+
+	void HttpRequestProgress(FHttpRequestPtr Request, int32 BytesSent, int32 BytesReceived);
+
+
 	UPROPERTY(BlueprintAssignable, Category = "HTTP_UPLOAD")
 	FHttpRequestR OnHttpCompletedReturn;
+
+
+	UPROPERTY(BlueprintAssignable, Category = "HTTP_UPLOAD")
+	FHttpProgressR OnHttpProgressReturn;
+
+
+	FString RequerstType;  // post  get 
+	
+	int32 ContentLength;
 
 	FString ID;
 
